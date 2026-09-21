@@ -1,0 +1,337 @@
+{
+  "name": "CEO - Reporte matinal",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "YOUR_EMAIL@gmail.com",
+          "mode": "list",
+          "cachedResultName": "YOUR_EMAIL@gmail.com"
+        },
+        "timeMax": "={{ $now.plus({days: 1}).endOf('day') }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        -304
+      ],
+      "id": "879d9739-dafe-4f45-84dd-52fd78cfc39a",
+      "name": "Get many events",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "ejLu1zh38d66Cfca",
+          "name": "Google Calendar account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "limit": 10,
+        "filters": {
+          "q": "newer_than:2d"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        240,
+        -80
+      ],
+      "id": "2d72010e-87f2-4805-a959-78a2697c8d6e",
+      "name": "Get many messages",
+      "webhookId": "2e43a6e5-fb41-48f6-a158-10af01f3ca07",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "nX3mgOBQzzplBXo6",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const memoria = $getWorkflowStaticData('global');\nconst vistos = memoria.vistos || [];\n\nconst eventosRaw = $('Get many events').all().filter(e => e.json.summary || e.json.start);\nconst correosRaw = $('Get many messages').all().filter(m => m.json.Subject);\n\nconst hora = $now.hour;\nconst momento = hora < 12 ? 'mañana' : hora < 20 ? 'tarde' : 'noche';\nconst temas = ['disciplina','paciencia','constancia','aprender algo nuevo','familia',\n  'descansar sin culpa','valentía','una sola cosa a la vez','pequeñas victorias','empezar aunque cueste'];\nconst refs = ['Dragon Ball','One Piece','Naruto','Zelda','Dark Souls','Pokémon',\n  'League of Legends','Mario','Final Fantasy','Attack on Titan'];\nconst azar = a => a[Math.floor(Math.random() * a.length)];\n\nconst eventos = eventosRaw.map(e => ({\n  titulo: e.json.summary || 'Sin título',\n  inicio: e.json.start?.dateTime || e.json.start?.date\n}));\nconst correos = correosRaw.map(m => ({\n  id: m.json.id, de: m.json.From, asunto: m.json.Subject, extracto: m.json.snippet?.substring(0, 150)\n}));\nconst nuevos = correos.filter(c => !vistos.includes(c.id));\n\nconst ultimo = memoria.ultimo || 'ninguno';\nmemoria.vistos = [...new Set([...correos.map(c => c.id), ...vistos])].slice(0, 300);\nmemoria.ultimo = $now.toFormat('dd/MM HH:mm');\n\nreturn [{ json: {\n  fecha: $now.toFormat('dd/MM/yyyy'), hora: $now.toFormat('HH:mm'), momento,\n  tema: azar(temas), referencia: azar(refs),\n  ultimo_reporte: ultimo,\n  num_nuevos: nuevos.length,\n  num_ya_avisados: correos.length - nuevos.length,\n  eventos: eventos.length ? JSON.stringify(eventos) : 'No hay eventos',\n  correos_nuevos: nuevos.length ? JSON.stringify(nuevos.map(({id, ...r}) => r)) : 'Ninguno'\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -176
+      ],
+      "id": "ee81396c-e8df-48fa-982e-68e8f6f3df5e",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-flash-lite-latest",
+          "mode": "list",
+          "cachedResultName": "models/gemini-flash-lite-latest"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Eres el asistente personal de Samuel. Son las {{ $json.hora }} del {{ $json.fecha }}. Reporte de {{ $json.momento }}.\nÚltimo reporte enviado: {{ $json.ultimo_reporte }}\n\nEVENTOS (hoy y mañana):\n{{ $json.eventos }}\n\nCORREOS NUEVOS desde el último reporte ({{ $json.num_nuevos }}):\n{{ $json.correos_nuevos }}\nCorreos sin leer ya avisados antes: {{ $json.num_ya_avisados }}\n\nDevuelve SOLO un JSON válido, sin markdown: {\"texto\": \"...\", \"guion\": \"...\"}\nDentro del JSON, los saltos de línea se escriben como \\n.\n\nLÓGICA:\n- Detalla solo los correos NUEVOS. De los ya avisados, di solo cuántos siguen pendientes, en una línea.\n- Si no hay correos nuevos y no queda nada en la agenda, el texto es corto (máximo 3 líneas). No repitas el reporte anterior.\n- Tarde y noche: no menciones eventos que ya han pasado.\n\n\"texto\": reporte para Telegram. Tutéame. Solo <b> e <i>, nunca asteriscos ni <br>. Emojis.\n- MAÑANA (máximo 220 palabras), siempre con estas secciones:\n📅 <b>Agenda</b> de hoy\n📬 <b>Responder</b>: qué correos y por qué\n🗑️ <b>Ignorar</b>: en una sola línea\n🧭 <b>Plan</b>: acciones con hora (ej: \"11:00 responder a Alpitronic\")\n💡 <b>Consejo</b>: una recomendación práctica\n- TARDE (máximo 100 palabras): solo lo nuevo desde el último reporte y lo que queda hoy.\n- NOCHE (máximo 100 palabras): cierre del día y agenda de mañana.\n- Si no hay nada nuevo: 2-3 líneas, sin relleno.\n\n\"guion\": para leer en voz alta. Entre 50 y 70 palabras. Texto plano, sin emojis ni símbolos. Empieza con \"Buenos días\", \"Buenas tardes\" o \"Buenas noches\", Samuel, según el momento. Tono troll y gracioso, de colega con cariño y respeto. Mensaje motivador sobre \"{{ $json.tema }}\" con una referencia a {{ $json.referencia }}. A veces llámale saiyan. Dile cuántos correos nuevos tiene y que mire Telegram. Si no hay nada nuevo, que sea más corto y relajado."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        640,
+        -176
+      ],
+      "id": "fb31aa58-fe0a-4c66-b267-3d0f77e23448",
+      "name": "Message a model1",
+      "retryOnFail": true,
+      "maxTries": 5,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "7sMiYnXJAJDYoH7H",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "={{ $json.texto }}",
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1024,
+        -544
+      ],
+      "id": "4dfd35bc-2807-48e2-9ffa-a390a4bca44c",
+      "name": "Send a text message",
+      "webhookId": "3e556ed5-213c-41cf-8bbf-036a91c34d5b",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "credentials": {
+        "telegramApi": {
+          "id": "aIHxR8lK5DuezltO",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $input.first().json.content.parts[0].text;\nconst d = JSON.parse(raw.replace(/```json|```/g, '').trim());\n\nconst texto = d.texto\n  .replace(/<br\\s*\\/?>/gi, '\\n')\n  .replace(/<(?!\\/?(b|i|u|s|code|pre|a)\\b)[^>]*>/gi, '');\n\nreturn [{ json: { texto, guion: d.guion } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        896,
+        -320
+      ],
+      "id": "1866bf7e-57d8-4d27-801c-a3fb62e1ed00",
+      "name": "Separate"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:8000/synthesize",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{ $('Separate').first().json.guion }}"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1248,
+        -464
+      ],
+      "id": "34dea992-b064-42a6-9bdd-cac53110c776",
+      "name": "My_voice"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_TOKEN }}/sendVoice",
+        "sendBody": true,
+        "contentType": "multipart-form-data",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "chat_id",
+              "value": "YOUR_TELEGRAM_CHAT_ID"
+            },
+            {
+              "parameterType": "formBinaryData",
+              "name": "voice",
+              "inputDataFieldName": "data"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1136,
+        -240
+      ],
+      "id": "3db84f11-0d47-4266-9a6f-5e6d69ed4a92",
+      "name": "Send_voicenote"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ceo-report",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -32,
+        -400
+      ],
+      "id": "ca2c45c4-65f5-4f96-9dad-95df0e081c4f",
+      "name": "Webhook",
+      "webhookId": "769ecc08-500e-4da7-ba3c-bf8f48dc0bcf"
+    }
+  ],
+  "connections": {
+    "Get many events": {
+      "main": [
+        [
+          {
+            "node": "Get many messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get many messages": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Separate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separate": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "My_voice": {
+      "main": [
+        [
+          {
+            "node": "Send_voicenote",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_voicenote": {
+      "main": [
+        []
+      ]
+    },
+    "Send a text message": {
+      "main": [
+        [
+          {
+            "node": "My_voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get many events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "errorWorkflow": "4sYArp3tYpflogwJ",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
+  },
+  "versionId": "660c54cd-0321-4809-9b45-a907c9fc773b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f5a5f36a5ca883350c521b9cb28aa7ed35bbe9405d6ab49a617b73010486831"
+  },
+  "nodeGroups": [],
+  "id": "RY3wQaovawHx43Do",
+  "tags": []
+}

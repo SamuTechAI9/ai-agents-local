@@ -1,0 +1,13 @@
+[Unit]
+Description=API de voz de Samuel (Chatterbox)
+After=network.target
+
+[Service]
+User=samuolo
+WorkingDirectory=/home/samuolo/proyectos/chatterbox-voice
+ExecStart=/home/samuolo/proyectos/chatterbox-voice/venv/bin/python app.py
+Environment=PYTHONUNBUFFERED=1
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

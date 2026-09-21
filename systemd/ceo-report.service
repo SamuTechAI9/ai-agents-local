@@ -1,0 +1,8 @@
+[Unit]
+Description=CEO: lanzar reporte
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemd-inhibit --what=sleep:handle-lid-switch --why="Reporte del CEO" /usr/local/bin/ceo-report.sh

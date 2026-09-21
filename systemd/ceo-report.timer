@@ -1,0 +1,11 @@
+[Unit]
+Description=CEO: 8:00, 14:00 y 21:00
+
+[Timer]
+OnCalendar=*-*-* 08,14,21:00:00
+WakeSystem=true
+Persistent=true
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target

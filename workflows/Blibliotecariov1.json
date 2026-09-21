@@ -1,0 +1,464 @@
+{
+  "name": "Blibliotecariov1",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "seconds",
+              "secondsInterval": 15
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -592,
+        -576
+      ],
+      "id": "3661a02d-41e9-49fa-a2de-14ac3be7e734",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_TOKEN }}/getUpdates",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "offset",
+              "value": "-1"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        -384,
+        -688
+      ],
+      "id": "88ef3ece-4dad-421f-bd7c-6886042590fb",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "50763668-e46e-4171-827c-46d0baaed195",
+              "name": "texto",
+              "value": "={{ $json.result[0].message.text }}",
+              "type": "string"
+            },
+            {
+              "id": "dcb7e392-5593-458c-874b-8735e708bb49",
+              "name": "fecha",
+              "value": "={{ $now.format('yyyy-MM-dd HH:mm') }}",
+              "type": "string"
+            },
+            {
+              "id": "3de25f62-60e6-40b4-b67d-a60f64699cfd",
+              "name": "update_id",
+              "value": "={{ $json.result[0].update_id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        -288,
+        -464
+      ],
+      "id": "c7758b69-2c6e-47c4-b388-5e3c8896f7bf",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama3.2",
+          "mode": "id"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=Eres el recepcionista de Samuel. Lees cada mensaje y decides qué es:\n- \"nota\": algo que quiere guardar (ideas, tareas, datos, recordatorios).\n- \"pregunta\": te pregunta o te habla (cómo va el día, novedades, saludos).\n\nNUNCA respondas al mensaje ni te niegues. Devuelve SOLO un JSON, sin texto adicional ni markdown:\n{\"tipo\": \"nota\", \"resumen\": \"...\", \"tags\": \"tag1, tag2\", \"categoria\": \"...\"}\n\nCategorías posibles: trabajo, tecnico, personal, idea, tarea.\n\nEjemplos:\nMensaje: \"llamar al dentista mañana a las 10\"\n{\"tipo\": \"nota\", \"resumen\": \"Llamar al dentista mañana a las 10\", \"tags\": \"dentista, llamada\", \"categoria\": \"tarea\"}\nMensaje: \"idea: bot que resuma mis llamadas\"\n{\"tipo\": \"nota\", \"resumen\": \"Idea de bot para resumir llamadas\", \"tags\": \"bot, llamadas\", \"categoria\": \"idea\"}\nMensaje: \"dime cómo va el día, alguna novedad?\"\n{\"tipo\": \"pregunta\", \"resumen\": \"Pregunta por novedades\", \"tags\": \"novedades\", \"categoria\": \"personal\"}\nMensaje: \"hola Emi, qué tal\"\n{\"tipo\": \"pregunta\", \"resumen\": \"Saludo\", \"tags\": \"saludo\", \"categoria\": \"personal\"}\n\nMensaje: {{ $json.texto }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -528
+      ],
+      "id": "0b17afcb-60ce-49c7-8c81-031c6a807661",
+      "name": "Message a model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "tVb1IEUitjvT7plW",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const ef = $('Edit Fields').first().json;\nconst t = (ef.texto || '').trim();\nif (!t) return [];  // fotos, stickers o audios: no se guardan\n\nlet datos = {};\ntry {\n  datos = JSON.parse($input.first().json.content.replace(/```json|```/g, '').trim());\n} catch (e) {}\n\nconst low = t.toLowerCase();\nconst esNota = /^(nota|idea|tarea|recordar|apunta)/.test(low);\nconst pareceCharla = low.includes('?') || /^(hola|hey|buenas|qué tal|que tal|emi|dime|cómo va|como va)/.test(low);\nconst llamaDicePregunta = String(datos.tipo || '').toLowerCase().includes('pregunta');\n\nreturn [{ json: {\n  fecha: ef.fecha, texto: t,\n  resumen: datos.resumen || t, tags: datos.tags || '', categoria: datos.categoria || 'personal',\n  tipo: !esNota && (llamaDicePregunta || pareceCharla) ? 'pregunta' : 'nota',\n  update_id: ef.update_id\n}}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        256,
+        -832
+      ],
+      "id": "a9c1330d-fd8f-457d-9283-dd231dd96012",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_SHEET_ID",
+          "mode": "list",
+          "cachedResultName": "Bibliotecario"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "fecha",
+              "displayName": "fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "texto",
+              "displayName": "texto",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "resumen",
+              "displayName": "resumen",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "tags",
+              "displayName": "tags",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "categoria",
+              "displayName": "categoria",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "update_id",
+              "displayName": "update_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        720,
+        -592
+      ],
+      "id": "d2e31240-beac-4553-9c36-5f6d4bbb9cfc",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "2bfDLyDLl3jfyIOx",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "removeItemsSeenInPreviousExecutions",
+        "dedupeValue": "={{ $json.update_id }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -288
+      ],
+      "id": "4172a8e8-4fbe-4c31-b45c-d6b6e15c4d85",
+      "name": "Remove Duplicates"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "=✅ Guardado: {{ $json.resumen }} [{{ $json.categoria }}]",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        -352
+      ],
+      "id": "53e297ed-5b50-4cf4-8b3c-3093d5f2fcfe",
+      "name": "Send a text message",
+      "webhookId": "d438dfd6-a2fb-44eb-a0bb-8522b652fc9b",
+      "credentials": {
+        "telegramApi": {
+          "id": "aIHxR8lK5DuezltO",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "ba4ca36c-33ed-46a6-abbb-54e27f81fe22",
+              "leftValue": "={{ $json.tipo }}",
+              "rightValue": "pregunta",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        -736
+      ],
+      "id": "292f3f92-01c1-411e-bac5-405fe30f1552",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "chatId": "YOUR_TELEGRAM_CHAT_ID",
+        "text": "⏳ Marchando, saiyan. Te preparo el reporte…",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        576,
+        -944
+      ],
+      "id": "74912d2c-c174-4136-8664-3454831e5efa",
+      "name": "Send a text message1",
+      "webhookId": "fd549f0a-d163-4dda-bc86-927ca268faac",
+      "credentials": {
+        "telegramApi": {
+          "id": "aIHxR8lK5DuezltO",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:5678/webhook/ceo-report",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        800,
+        -944
+      ],
+      "id": "fff8b027-5513-4d3e-9299-3d8e9854a986",
+      "name": "HTTP Request1"
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Remove Duplicates",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Remove Duplicates": {
+      "main": [
+        [
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Send a text message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send a text message1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "9ea8f1f9-5232-4ff0-bcd0-eef14d9e20a1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6f5a5f36a5ca883350c521b9cb28aa7ed35bbe9405d6ab49a617b73010486831"
+  },
+  "nodeGroups": [],
+  "id": "51ozHSnuzRP3A8se",
+  "tags": []
+}
