@@ -134,3 +134,17 @@ Built by **Samuel Torres Nebro** — moving into AI and cloud development.
 Based in Trondheim, Norway.
 
 [LinkedIn](https://www.linkedin.com/in/samuel-torres-0a882b292)
+
+## 📸 Screenshots
+
+**CEO agent — morning report workflow**
+![CEO workflow](docs/screenshots/ceo-workflow.png)
+
+**Librarian agent — note capture and classification**
+![Librarian workflow](docs/screenshots/librarian-workflow.png)
+
+**Error alert workflow**
+![Error alert workflow](docs/screenshots/error-alert-workflow.png)
+
+**A briefing as it arrives on Telegram** (personal data redacted)
+![Telegram briefing](docs/screenshots/telegram-briefing.png)
