@@ -126,7 +126,7 @@ ai-agents-local/
 | ⬜ | Conversational CEO (free-form questions) |
 | ⬜ | Dedicated Telegram bot for the CEO |
 | ⬜ | Automatic call summaries |
-| ⬜ | Screenshots and demo video |
+| ✅ | Screenshots |
 
 ## 👤 About
 
